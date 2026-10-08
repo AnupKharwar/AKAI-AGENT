@@ -1,0 +1,2 @@
+MODEL=qwen3:4b - taking time
+MODEL=qwen3:1.7b
