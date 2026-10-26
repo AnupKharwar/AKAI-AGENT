@@ -1,2 +1,69 @@
-MODEL=qwen3:4b - taking time
-MODEL=qwen3:1.7b
+NAME                       ID              SIZE      MODIFIED
+nomic-embed-text:latest    0a109f422b47    274 MB    21 seconds ago - Embedding Model
+qwen3:1.7b                 8f68893c685c    1.4 GB    8 days ago -- Currently in use
+qwen3:4b                   359d7dd4bcda    2.5 GB    9 days ago -- Taking time
+
+
+
+--------------------------------------------
+AI-Assistant : 
+1> Simple chatbot system based AI Assistant with No conversational memory : Simple Using LLM
+2> Chatbot system: AI-Assistant with conversational memory(context based chat)
+3> User prompt, Assistant prompt and system prompt 
+4> Role : Define a role User, Assistant and system. based on system role LLM behaviour will 
+          change for same user prompt.
+5> Tool : we can create multiple tool like calc, currentdate, password genrator, Dics roll
+6> AI Agent will decide which do it need to use tool or LLM for user prompt
+7> Tool Manager + AI Assistant , dicide which one I can call
+8> Build the knowledge base
+9> RAG retrival augmented genration : we are using embbedding to match containt from file 
+
+ 1:  built our first Al assistant using Ollama.
+ 2:  added conversation memory.
+ 3:  improved the assistant using system prompts.
+ 4:  introduced tools.
+ 5:  taught the assistant to read files.
+ 6:  introduced Semantic RAG.
+ 7:  introduced the planner.
+ 8:  moved our tools to MCP.
+
+Agent Loop : What Is an Agent Loop?
+An Agent Loop is a repetitive cycle in which the Al agent:
+1. Thinks about the current situation.
+2. Decides the next action.
+3. Executes that action.
+4. Observes the result.
+5. Decides whether another action is required.
+The loop continues until the goal has been achieved.
+
+The Agent State is simply a dictionary containing everything the agent needs while solving the current task.
+Field        : Description
+user_request : Original user query
+current_step : Current iteration number
+max_steps    : Maximum iterations allowed
+actions      : List of actions already executed
+observations : Results returned by those actions
+finished     : Indicates whether execution has completed
+final_answer : Final response returned to the user
+------------------------------------------------
+
+git checkout main
+git pull origin main
+ 
+git checkout -b feature/chatbot
+ 
+# Make changes
+ 
+git add .
+git commit -m "Added chatbot"
+ 
+git push -u origin feature/chatbot
+ 
+# Create Pull Request on GitHub
+ 
+# After merge:
+ 
+git checkout main
+git pull origin main
+ 
+git branch -d feature/chatbot
