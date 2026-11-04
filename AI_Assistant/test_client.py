@@ -12,9 +12,7 @@ async def main():
     )
 
     print()
-
     print("Available Tools")
-
     print("----------------")
 
     for tool in tools:
