@@ -1,8 +1,8 @@
 import json
+import os
 
 from openai import OpenAI
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -15,73 +15,130 @@ client = OpenAI(
 def build_tool_descriptions(tools):
 
     descriptions = ""
-   
+
     for tool in tools:
 
-        schema = getattr(tool, "input_schema", {})
+        schema = getattr(
+            tool,
+            "input_schema",
+            {}
+        )
 
         descriptions += f"""
-Tool:
+Tool Name:
 {tool.name}
 
 Description:
 {tool.description}
 
-Schema:
+Input Schema:
 {json.dumps(schema, indent=2)}
 
-Required Parameters:
-{schema.get("required", [])}
-----------------------------
+----------------------------------
 """
 
     return descriptions
 
+
 def planner(state, tools):
 
-    tool_descriptions = build_tool_descriptions(tools)
-    example = """
-    {
-        "tool": "get_claim_by_id",
-        "arguments": {
-            "claim_id": "C0000010"
-        }
-    }
-    """
+    tool_descriptions = build_tool_descriptions(
+        tools
+    )
+
+    pending_tasks = [
+        item["task"]
+        for item in state["tasks"]
+        if item["status"] == "pending"
+    ]
+
     prompt = f"""
 You are an AI Planner.
-
-Your job is to decide ONLY the next action.
 
 User Request:
 {state["user_request"]}
 
+Pending Tasks:
+{pending_tasks}
+
 Completed Actions:
 {state["actions"]}
 
-Previous Observations:
+Observations:
 {state["observations"]}
+
+Results:
+{state["results"]}
 
 Available Tools:
 {tool_descriptions}
 
 Rules:
 
-1. Choose only ONE next action.
-2. Never repeat an action that has already been completed.
-3. Use the observations to decide what is still required.
-4. If the user's request has been completely satisfied, return FINISH.
-6. Do not explain your answer.
-7. Extract tool arguments from the user request.
-8. Follow the Input Schema exactly.
-9. Return ONLY tool name with valid JSON.
-Example:{example}
+1. Select exactly ONE pending task.
+2. Copy the task EXACTLY.
+3. Use only the tool names shown above.
+4. Do not invent tool names.
+5. Do not change tool names.
+6. Do not add parentheses to tool names.
+7. Extract all required arguments.
 
-If complete return:
+If a tool is required return:
+
+{{
+    "action": "USE_TOOL",
+    "task": "<exact pending task>",
+    "tool": "<tool name>",
+    "arguments": {{}}
+}}
+
+Examples:
+
+{{
+    "action": "USE_TOOL",
+    "task": "Retrieve claims details for claim ID C0000005",
+    "tool": "get_claim_by_id",
+    "arguments": {{
+        "claim_id": "C0000005"
+    }}
+}}
+
+{{
+    "action": "USE_TOOL",
+    "task": "Get current time",
+    "tool": "current_time",
+    "arguments": {{}}
+}}
+
+{{
+    "action": "USE_TOOL",
+    "task": "Generate 10-digit password",
+    "tool": "generate_password",
+    "arguments": {{
+        "length": 10
+    }}
+}}
+
+If NO available tool is needed:
+
+{{
+    "action": "ANSWER_DIRECTLY",
+    "task": "<exact pending task>"
+}}
+
+Example:
+
+{{
+    "action": "ANSWER_DIRECTLY",
+    "task": "Explain CARC and RARC"
+}}
+
+If there are no pending tasks return:
 
 FINISH
 
-Next Action:
+Return JSON only.
+Do not explain.
 """
 
     response = client.chat.completions.create(
@@ -89,7 +146,8 @@ Next Action:
         messages=[
             {
                 "role": "system",
-                "content": "You are an AI planner."
+                "content":
+                "Return only FINISH or valid JSON."
             },
             {
                 "role": "user",
@@ -98,10 +156,95 @@ Next Action:
         ]
     )
 
-    # return response.choices[0].message.content.strip()
-    content = response.choices[0].message.content.strip()
-    if content == "FINISH":
+    content = response.choices[0].message.content
+
+    if not content:
+        raise ValueError(
+            "Planner returned empty content."
+        )
+
+    content = content.strip()
+
+    print("\n===== PLANNER RAW OUTPUT =====")
+    print(content)
+    print("==============================\n")
+
+    if content.upper() == "FINISH":
         return "FINISH"
 
-    return json.loads(content)
+    if content.startswith("```"):
 
+        content = (
+            content
+            .replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
+    try:
+
+        decision = json.loads(content)
+
+        if not isinstance(decision, dict):
+
+            raise ValueError(
+                "Planner did not return JSON object."
+            )
+
+        action = decision.get("action")
+
+        if not action:
+
+            raise ValueError(
+                "Planner response missing action."
+            )
+
+        if action == "USE_TOOL":
+
+            if "task" not in decision:
+
+                raise ValueError(
+                    "USE_TOOL missing task."
+                )
+
+            if "tool" not in decision:
+
+                raise ValueError(
+                    "USE_TOOL missing tool."
+                )
+
+            if "arguments" not in decision:
+
+                decision["arguments"] = {}
+
+        elif action == "ANSWER_DIRECTLY":
+
+            if "task" not in decision:
+
+                raise ValueError(
+                    "ANSWER_DIRECTLY missing task."
+                )
+
+        else:
+
+            raise ValueError(
+                f"Unknown action: {action}"
+            )
+
+        return decision
+
+    except Exception as ex:
+
+        print(
+            "\n===== INVALID PLANNER OUTPUT ====="
+        )
+
+        print(content)
+
+        print(
+            "==================================\n"
+        )
+
+        raise ValueError(
+            f"Planner returned invalid JSON: {ex}"
+        )
