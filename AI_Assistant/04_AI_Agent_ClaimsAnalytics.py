@@ -1,6 +1,3 @@
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
 import asyncio
 
 from mcp_client import (
@@ -12,49 +9,7 @@ from mcp_client import (
 from agent_planner import planner
 from agent_executor import execute_action
 from agent_loop import run_agent_loop
-
-
-load_dotenv()
-
-client = OpenAI(
-    base_url=os.getenv("BASE_URL"),
-    api_key=os.getenv("API_KEY")
-)
-
-
-def format_answer(state):
-
-    prompt = f"""
-The user asked:
-
-{state["user_request"]}
-
-Actions performed:
-
-{state["actions"]}
-
-Observations:
-
-{state["observations"]}
-
-Answer the user naturally.
-
-Do not mention internal planning.
-Do not mention state.
-Do not mention tools.
-"""
-
-    response = client.chat.completions.create(
-        model=os.getenv("MODEL"),
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ]
-    )
-
-    return response.choices[0].message.content.strip()
+from agent_answer import format_answer
 
 
 async def main():
@@ -62,6 +17,16 @@ async def main():
     client = await connect()
 
     tools = await discover_tools(client)
+
+    print("\nChoose Your Agent Role\n")
+
+    print("1. Claim Analytics")
+    print("2. Provider")
+    print("3. Payer")
+    print("4. Healthcare Professional")
+    print("5. Healthcare Researcher")
+
+    choice = input("\nEnter your choice : ")
 
     print()
     print("Available Tools")
@@ -72,13 +37,17 @@ async def main():
 
     user_request = input("\nUser : ")
 
+
+
+
     state = await run_agent_loop(
         user_request,
         planner,
         execute_action,
         format_answer,
         tools,
-        client
+        client,
+        choice
     )
 
     print()
